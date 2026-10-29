@@ -191,3 +191,16 @@ fn bad_xdata_is_refused_and_changes_nothing() {
     assert!(err.to_string().contains("exceed"), "{err}");
     assert!(entities(&mut s, json!({"xdata": true}))[0]["xdata"].get("MORE").is_none());
 }
+
+#[test]
+fn a_missing_handle_changes_nothing() {
+    // One handle that names no object fails the whole call before any object or the layer
+    // table changes: the other object keeps its data and the new layer is not created.
+    let mut s = session_from(DXF);
+    let h = handle_of(&s, true);
+    let before = entities(&mut s, json!({"xdata": true}));
+    let r = s.execute("properties.set", &json!({"handles": [h, "FFFF"], "layer": "NEWLAYER", "xdata": {"ACME": [[1000, "x"]]}}));
+    assert!(r.is_err(), "a missing handle is refused");
+    assert_eq!(entities(&mut s, json!({"xdata": true})), before);
+    assert!(s.doc().unwrap().layer("NEWLAYER").is_none(), "no layer is left behind");
+}

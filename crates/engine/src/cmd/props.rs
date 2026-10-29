@@ -212,6 +212,13 @@ fn run_set(s: &mut Session, p: &Value) -> Result<Value> {
             }
         })
         .transpose()?;
+    // Every object must exist before anything changes: a missing handle found by the edit loop
+    // would leave the objects before it changed.
+    for h in &hs {
+        if d.entity(*h).is_none() {
+            return Err(bad("properties.set", format!("{}: no such object", h.hex())));
+        }
+    }
     // xdata is checked before anything changes (`ensure_layer` below adds a layer the drawing
     // keeps even when the command then fails): no object may end up with more xdata than a
     // file holds for one.

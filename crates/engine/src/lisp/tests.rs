@@ -438,6 +438,18 @@ fn entmake_refuses_xdata_over_the_object_limit_across_applications() {
 }
 
 #[test]
+fn a_dotted_minus_3_group_is_refused() {
+    // `(-3 . 7)` names no applications; it is a bad list (nil), not an empty one.
+    let mut s = session();
+    ok(&mut s, "(entmake '((0 . \"LINE\") (10 0 0 0) (11 5 0 0) (-3 (\"ACME\" (1070 . 9)))))");
+    let last = ok(&mut s, "(entlast)");
+    assert_eq!(ok(&mut s, "(entmake '((0 . \"LINE\") (10 0 0 0) (11 9 0 0) (-3 . 7)))"), "nil");
+    assert_eq!(ok(&mut s, "(entlast)"), last, "nothing was made");
+    assert_eq!(ok(&mut s, "(entmod (append (entget (entlast)) '((-3 . 7))))"), "nil");
+    assert_eq!(ok(&mut s, "(cdr (assoc -3 (entget (entlast) '(\"*\"))))"), "((\"ACME\" (1070 . 9)))");
+}
+
+#[test]
 fn entity_lists_hold_angles_in_radians() {
     let mut s = session();
     let near = |s: &mut Session, expr: &str, want: &str| {

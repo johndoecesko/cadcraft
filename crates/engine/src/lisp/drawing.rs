@@ -387,6 +387,10 @@ fn xdata_to_list(xdata: &[RawTag], patterns: &[String]) -> Value {
 /// when the list has no `-3`. An application with no groups removes its data in `entmod`.
 fn xdata_from_list(list: &Value) -> Result<Option<Vec<(String, Vec<RawTag>)>>, LispError> {
     let Some(x) = list.iter().find(|v| v.car().as_number() == Some(-3.0)).map(|v| v.cdr()) else { return Ok(None) };
+    // `(-3 . 7)` is not a list of applications: refused, not read as "no applications".
+    if !x.is_list() {
+        return Err(LispError::bad_arg("listp", &x));
+    }
     let bad = |what: &str| LispError::new(format!("bad DXF group: {what}"));
     let mut out = Vec::new();
     for app in x.iter() {
