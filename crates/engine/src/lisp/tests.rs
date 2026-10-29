@@ -459,6 +459,21 @@ fn a_dotted_minus_3_group_is_refused() {
 }
 
 #[test]
+fn runs_of_one_application_in_any_case_are_one_list() {
+    // A file with `ACME` and `acme` runs on one entity: entget shows one application with every
+    // group, and writing that list back with entmod keeps them all.
+    let dxf = "0\nSECTION\n2\nENTITIES\n0\nLINE\n5\n2A\n8\n0\n10\n0\n20\n0\n30\n0\n11\n10\n21\n0\n31\n0\n\
+        1001\nACME\n1070\n1\n1001\nacme\n1070\n2\n1001\nOTHER\n1000\nx\n0\nENDSEC\n0\nEOF\n";
+    let mut s = session();
+    s.open_drawing(cadcraft_io::read_dxf(dxf.as_bytes()).unwrap(), "runs", None);
+    let want = "((\"ACME\" (1070 . 1) (1070 . 2)) (\"OTHER\" (1000 . \"x\")))";
+    assert_eq!(ok(&mut s, "(cdr (assoc -3 (entget (entlast) '(\"*\"))))"), want);
+    assert_eq!(ok(&mut s, "(cdr (assoc -3 (entget (entlast) '(\"acme\"))))"), "((\"ACME\" (1070 . 1) (1070 . 2)))");
+    assert!(ok(&mut s, "(entmod (entget (entlast) '(\"*\")))").contains("LINE"));
+    assert_eq!(ok(&mut s, "(cdr (assoc -3 (entget (entlast) '(\"*\"))))"), want);
+}
+
+#[test]
 fn entity_lists_hold_angles_in_radians() {
     let mut s = session();
     let near = |s: &mut Session, expr: &str, want: &str| {

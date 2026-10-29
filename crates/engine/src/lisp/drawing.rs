@@ -370,11 +370,22 @@ fn typed_tag(r: &RawTag) -> Tag {
 /// applications of `xdata` matching one of `patterns` (any case; `wcmatch` wildcards).
 fn xdata_to_list(xdata: &[RawTag], patterns: &[String]) -> Value {
     let patterns: Vec<String> = patterns.iter().map(|p| p.trim().to_ascii_uppercase()).collect();
-    let apps = cadcraft_doc::xdata_apps(xdata).into_iter().filter(|(name, _)| {
+    // A file may hold several runs of one application, `ACME` and `acme` among them; they are
+    // one application to `set_xdata_app`, so they are one list here (first spelling, all the
+    // groups), or `(entmod (entget e '("*")))` would keep only the last run.
+    let mut apps: Vec<(&str, Vec<RawTag>)> = Vec::new();
+    for (name, groups) in cadcraft_doc::xdata_apps(xdata) {
         let up = name.to_ascii_uppercase();
-        patterns.iter().any(|p| super::builtins::wild_match(&up, p))
-    });
+        if !patterns.iter().any(|p| super::builtins::wild_match(&up, p)) {
+            continue;
+        }
+        match apps.iter_mut().find(|(app, _)| app.eq_ignore_ascii_case(name)) {
+            Some((_, all)) => all.extend_from_slice(groups),
+            None => apps.push((name, groups.to_vec())),
+        }
+    }
     let lists: Vec<Value> = apps
+        .into_iter()
         .map(|(name, groups)| {
             let tags: Vec<Tag> = groups.iter().map(typed_tag).collect();
             Value::list_with_tail(vec![Value::str(name)], Value::list(groups_to_list(&tags)))

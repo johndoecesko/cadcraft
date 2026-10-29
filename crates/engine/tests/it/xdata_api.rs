@@ -204,3 +204,18 @@ fn a_missing_handle_changes_nothing() {
     assert_eq!(entities(&mut s, json!({"xdata": true})), before);
     assert!(s.doc().unwrap().layer("NEWLAYER").is_none(), "no layer is left behind");
 }
+
+#[test]
+fn runs_of_one_application_in_any_case_are_one_entry() {
+    // `ACME` and `acme` runs on one entity are one application (as `set_xdata_app` treats
+    // them): one JSON key with every group, and `properties.set` with that entry keeps them all.
+    let dxf = "0\nSECTION\n2\nENTITIES\n0\nLINE\n5\n2A\n8\n0\n10\n0\n20\n0\n30\n0\n11\n10\n21\n0\n31\n0\n\
+        1001\nACME\n1070\n1\n1001\nacme\n1070\n2\n1001\nOTHER\n1000\nx\n0\nENDSEC\n0\nEOF\n";
+    let mut s = session_from(dxf);
+    let h = handle_of(&s, true);
+    let shown = entities(&mut s, json!({"xdata": true}));
+    assert_eq!(shown[0]["xdata"], json!({"ACME": [[1070, 1], [1070, 2]], "OTHER": [[1000, "x"]]}));
+    assert_eq!(entities(&mut s, json!({"xdata": "acme"}))[0]["xdata"], json!({"ACME": [[1070, 1], [1070, 2]]}));
+    s.execute("properties.set", &json!({"handles": [h], "xdata": shown[0]["xdata"]})).unwrap();
+    assert_eq!(entities(&mut s, json!({"xdata": true}))[0]["xdata"], shown[0]["xdata"]);
+}

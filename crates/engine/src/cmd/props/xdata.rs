@@ -62,8 +62,10 @@ impl XdataSelect {
             if apps.is_some_and(|apps| !apps.iter().any(|a| a.trim().eq_ignore_ascii_case(name))) {
                 continue;
             }
-            // A second run of the same application (not something AutoCAD writes) joins the first.
-            match out.get_mut(name) {
+            // A second run of the same application (not something AutoCAD writes; `ACME` and
+            // `acme` are one application, as `set_xdata_app` treats them) joins the first.
+            let key = out.keys().find(|k| k.eq_ignore_ascii_case(name)).cloned();
+            match key.and_then(|k| out.get_mut(&k)) {
                 Some(Value::Array(v)) => v.extend(groups_json(groups)),
                 _ => {
                     out.insert(name.to_string(), Value::Array(groups_json(groups)));
