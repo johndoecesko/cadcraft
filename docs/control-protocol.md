@@ -107,7 +107,7 @@ The existing response is unchanged: `count` is all matches, `returned` is the pa
 `entities` contains handles, layers and geometry. This query does not change selection, drawing
 contents or undo history. `entities` is a command, not a top-level protocol method.
 
-### Extended data (xdata)
+## Extended data (xdata)
 
 Other applications' extended data travels with an entity (it is read from the file, kept on
 copies and written back with an APPID record for each application). `entities` leaves it out

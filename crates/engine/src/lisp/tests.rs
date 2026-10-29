@@ -421,6 +421,23 @@ fn entity_lists_carry_xdata_in_group_minus_3() {
 }
 
 #[test]
+fn entmake_refuses_xdata_over_the_object_limit_across_applications() {
+    // Each application's groups fit the per-application cap; together they exceed what an object
+    // may hold, so the list is refused (nil) and nothing is made.
+    let mut s = session();
+    ok(&mut s, "(entmake '((0 . \"LINE\") (10 0 0 0) (11 5 0 0)))");
+    let last = ok(&mut s, "(entlast)");
+    let groups = "(1000 . \"x\") ".repeat(cadcraft_doc::MAX_XDATA_GROUPS / 2 + 8);
+    let code = format!("(entmake '((0 . \"LINE\") (10 0 0 0) (11 9 0 0) (-3 (\"A1\" {groups}) (\"A2\" {groups}))))");
+    assert_eq!(ok(&mut s, &code), "nil");
+    assert_eq!(ok(&mut s, "(entlast)"), last, "nothing was made");
+    // Half of that on one application is within the limit and is made.
+    let code = format!("(entmake '((0 . \"LINE\") (10 0 0 0) (11 9 0 0) (-3 (\"A1\" {groups}))))");
+    assert!(ok(&mut s, &code).contains("LINE"));
+    assert_ne!(ok(&mut s, "(entlast)"), last);
+}
+
+#[test]
 fn entity_lists_hold_angles_in_radians() {
     let mut s = session();
     let near = |s: &mut Session, expr: &str, want: &str| {

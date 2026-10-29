@@ -140,7 +140,7 @@ our output in AutoCAD black-box.
 
 | Date | Change | Summary |
 |---|---|---|
-| 2026-10-30 | minor | An entity's xdata is exposed: `entities {xdata: true | "APP"}` and `properties` list it typed by group code, `properties.set {xdata}` replaces or removes one application's data (checked as hostile input), AutoLISP `entget` takes the application list and returns the `-3` group, `entmod`/`entmake` take it, `regapp` registers names; the APPID table is written as before |
+| 2026-10-30 | minor | An entity's xdata is exposed: `entities {xdata: true or "APP"}` and `properties` list it typed by group code, `properties.set {xdata}` replaces or removes one application's data (checked as hostile input), AutoLISP `entget` takes the application list and returns the `-3` group, `entmod`/`entmake` take it, `regapp` registers names; the APPID table is written as before |
 | 2026-10-25 | minor | LAYOUT SAveas (`layout.saveas`) writes a layout as a drawing template: its page setup and paper space objects, no model space objects or other layouts, and only the named objects they use |
 | 2026-10-22 | minor | DXF/DWG save: angular, diametric and radial dimensions get standard DIMASSOC objects (one centre reference to the circle for radial/diametric, the definition points for angular), so AutoCAD follows their geometry; the standard objects of those kinds are read back too, without CADCraft's xdata (#1651) |
 | 2026-10-19 | minor | DXF/DWG save: angular dimension block text honors DIMDSEP, including per-dimension overrides (#1646) |

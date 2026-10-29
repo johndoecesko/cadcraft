@@ -475,6 +475,11 @@ fn entity_from_list(ctx: &Ctx<'_>, list: &Value) -> Result<ListedEntity, LispErr
                 for (app, groups) in apps {
                     cadcraft_doc::set_xdata_app(&mut common.xdata, app, Some(groups));
                 }
+                // Each application's groups are checked one by one above; together they must
+                // still fit what a file holds for one object.
+                if common.xdata.len() > cadcraft_doc::MAX_XDATA_GROUPS {
+                    return Err(LispError::new("bad DXF group: too many xdata groups"));
+                }
             }
             Ok((kind, common, k, xdata))
         }

@@ -212,16 +212,11 @@ fn run_set(s: &mut Session, p: &Value) -> Result<Value> {
             }
         })
         .transpose()?;
-    if let Some(l) = str_param(p, "layer") {
-        d.ensure_layer(l);
-    }
-    let dim_style = str_param(p, "dimStyle")
-        .map(|n| d.dim_style(n).map(|st| st.name.clone()).ok_or_else(|| bad("properties.set", format!("dimension style `{n}` not found"))))
-        .transpose()?;
-    let dim_over = dim_overrides(p)?;
+    // xdata is checked before anything changes (`ensure_layer` below adds a layer the drawing
+    // keeps even when the command then fails): no object may end up with more xdata than a
+    // file holds for one.
     let xd = p.get("xdata").filter(|v| !v.is_null()).map(xdata::xdata_from_json).transpose().map_err(|m| bad("properties.set", m))?;
     if let Some(changes) = &xd {
-        // No object may end up with more xdata than a file holds for one: refused before anything changes.
         for h in &hs {
             let Some(e) = d.entity(*h) else { continue };
             let mut after = e.common.xdata.clone();
@@ -231,6 +226,13 @@ fn run_set(s: &mut Session, p: &Value) -> Result<Value> {
             }
         }
     }
+    if let Some(l) = str_param(p, "layer") {
+        d.ensure_layer(l);
+    }
+    let dim_style = str_param(p, "dimStyle")
+        .map(|n| d.dim_style(n).map(|st| st.name.clone()).ok_or_else(|| bad("properties.set", format!("dimension style `{n}` not found"))))
+        .transpose()?;
+    let dim_over = dim_overrides(p)?;
     let anno_scale = d.current_anno_scale();
     let common = CommonEntityProperties { anno_scale: &anno_scale, color, linetype: linetype.as_deref(), lineweight: lw, transparency, thickness };
     for h in &hs {
