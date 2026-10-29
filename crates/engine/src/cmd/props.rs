@@ -2,6 +2,7 @@
 
 mod matchprop;
 mod rename;
+pub(crate) mod xdata;
 
 pub use matchprop::MatchProps;
 
@@ -17,7 +18,7 @@ use crate::{Accept, Input, Interactive, Prompt, Result, Session, Step};
 pub fn specs() -> Vec<CommandSpec> {
     vec![
         CommandSpec::new("properties", "Properties", run_get).menu(&["Modify", "Properties"]).alias(&["pr", "props", "ch"]).params("{handles?} → properties of the selection").noundo(),
-        CommandSpec::new("properties.set", "Set Properties", run_set).params("{handles?, layer?, color?, linetype?, lineweight?, ltscale?, thickness?, transparency?: \"ByLayer\" | \"ByBlock\" | 0..90, visible?, <geometry fields: radius, center, start, end, text, height, rotation…>; dimensions: textOverride, dimStyle, textHeight, arrowSize, dimScale, precision (per-dimension overrides)}"),
+        CommandSpec::new("properties.set", "Set Properties", run_set).params("{handles?, layer?, color?, linetype?, lineweight?, ltscale?, thickness?, transparency?: \"ByLayer\" | \"ByBlock\" | 0..90, visible?, <geometry fields: radius, center, start, end, text, height, rotation…>; dimensions: textOverride, dimStyle, textHeight, arrowSize, dimScale, precision (per-dimension overrides); xdata?: {\"APP\": [[code, value], …] | null} (replaces or removes that application's extended data; codes 1000–1071, points as [1010, [x, y, z]])}"),
         CommandSpec::new("matchprop", "Match Properties", matchprop::run_matchprop)
             .menu(&["Modify", "Match Properties"])
             .alias(&["ma", "painter"])
@@ -96,6 +97,9 @@ pub(super) fn entity_props(d: &cadcraft_doc::Drawing, e: &cadcraft_doc::Entity) 
     {
         o.insert("annotative".into(), json!(cadcraft_doc::is_annotative(e)));
         o.insert("annotativeScales".into(), json!(e.common.anno_scales.iter().map(|s| s.name.clone()).collect::<Vec<_>>()));
+    }
+    if let (Some(x), Some(o)) = (xdata::xdata_json(&e.common.xdata), v.as_object_mut()) {
+        o.insert("xdata".into(), x);
     }
     let geo = serde_json::to_value(&e.kind).unwrap_or(Value::Null);
     if let (Some(o), Some(g)) = (v.as_object_mut(), geo.as_object()) {
@@ -215,12 +219,27 @@ fn run_set(s: &mut Session, p: &Value) -> Result<Value> {
         .map(|n| d.dim_style(n).map(|st| st.name.clone()).ok_or_else(|| bad("properties.set", format!("dimension style `{n}` not found"))))
         .transpose()?;
     let dim_over = dim_overrides(p)?;
+    let xd = p.get("xdata").filter(|v| !v.is_null()).map(xdata::xdata_from_json).transpose().map_err(|m| bad("properties.set", m))?;
+    if let Some(changes) = &xd {
+        // No object may end up with more xdata than a file holds for one: refused before anything changes.
+        for h in &hs {
+            let Some(e) = d.entity(*h) else { continue };
+            let mut after = e.common.xdata.clone();
+            xdata::apply(&mut after, changes);
+            if after.len() > cadcraft_doc::MAX_XDATA_GROUPS {
+                return Err(bad("properties.set", format!("{}: xdata would exceed {} groups", h.hex(), cadcraft_doc::MAX_XDATA_GROUPS)));
+            }
+        }
+    }
     let anno_scale = d.current_anno_scale();
     let common = CommonEntityProperties { anno_scale: &anno_scale, color, linetype: linetype.as_deref(), lineweight: lw, transparency, thickness };
     for h in &hs {
         d.modify_entity(*h, |e| {
             set_common_properties(e, p, &common);
             apply_kind_properties(e, p, dim_style.as_ref(), &dim_over);
+            if let Some(changes) = &xd {
+                xdata::apply(&mut e.common.xdata, changes);
+            }
         })?;
     }
     Ok(json!({ "changed": hs.len() }))

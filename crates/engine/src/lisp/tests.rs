@@ -366,6 +366,61 @@ fn entity_lists_round_trip() {
 }
 
 #[test]
+fn entity_lists_carry_xdata_in_group_minus_3() {
+    let mut s = session();
+    // entmake with a -3 group puts the xdata on the new entity; entget shows it only when asked.
+    let made = ok(
+        &mut s,
+        "(entmake '((0 . \"LINE\") (10 0 0 0) (11 5 0 0) (-3 (\"ACME\" (1000 . \"D-07\") (1070 . 3) (1040 . 2.5) (1010 1.0 2.0 0.0) (1005 . \"2A\")) (\"PE_URL\" (1000 . \"https://example.com\")))))",
+    );
+    assert!(made.contains("LINE"));
+    assert_eq!(ok(&mut s, "(assoc -3 (entget (entlast)))"), "nil");
+    assert_eq!(
+        ok(&mut s, "(cdr (assoc -3 (entget (entlast) '(\"acme\"))))"),
+        "((\"ACME\" (1000 . \"D-07\") (1070 . 3) (1040 . 2.5) (1010 1.0 2.0 0.0) (1005 . \"2A\")))"
+    );
+    assert_eq!(ok(&mut s, "(length (cdr (assoc -3 (entget (entlast) '(\"*\")))))"), "2");
+    assert_eq!(ok(&mut s, "(length (cdr (assoc -3 (entget (entlast) '(\"PE_*\" \"nope\")))))"), "1");
+    assert_eq!(ok(&mut s, "(assoc -3 (entget (entlast) '(\"nope\")))"), "nil");
+    // The xdata is what the drawing holds (the API sees it too).
+    let x = s.execute("entities", &serde_json::json!({"xdata": "ACME"})).unwrap();
+    assert_eq!(x["entities"][0]["xdata"]["ACME"][1], serde_json::json!([1070, 3]));
+    // entmod without -3 keeps the xdata; with -3 it replaces the named applications' data and
+    // removes one listed without groups; the others stay.
+    ok(&mut s, "(setq d (entget (entlast))) (entmod (subst (cons 8 \"WALLS\") (assoc 8 d) d))");
+    assert_eq!(ok(&mut s, "(length (cdr (assoc -3 (entget (entlast) '(\"*\")))))"), "2");
+    ok(&mut s, "(entmod (append (entget (entlast)) (list (list -3 (list \"ACME\" (cons 1070 9))))))");
+    assert_eq!(ok(&mut s, "(cdr (assoc -3 (entget (entlast) '(\"ACME\"))))"), "((\"ACME\" (1070 . 9)))");
+    assert_eq!(ok(&mut s, "(length (cdr (assoc -3 (entget (entlast) '(\"*\")))))"), "2");
+    ok(&mut s, "(entmod (append (entget (entlast)) '((-3 (\"PE_URL\")))))");
+    assert_eq!(ok(&mut s, "(cdr (assoc -3 (entget (entlast) '(\"*\"))))"), "((\"ACME\" (1070 . 9)))");
+    // Bad xdata is refused as a bad list (nil), and nothing changes.
+    for bad in [
+        "(-3 (\"ACME\" (1002 . \"{\")))",
+        "(-3 (\"ACME\" (8 . \"0\")))",
+        "(-3 (\"ACME\" (1070 . 70000)))",
+        "(-3 (\"ACME\" (1010 1.0)))",
+        "(-3 (\"CADCRAFT\" (1000 . \"x\")))",
+        "(-3 (\"\" (1000 . \"x\")))",
+        "(-3 (7 (1000 . \"x\")))",
+        "(-3 (\"ACME\" 5))",
+    ] {
+        assert_eq!(ok(&mut s, &format!("(entmod (append (entget (entlast)) '({bad})))")), "nil", "{bad}");
+        assert_eq!(ok(&mut s, "(cdr (assoc -3 (entget (entlast) '(\"*\"))))"), "((\"ACME\" (1070 . 9)))", "{bad}");
+    }
+    assert!(eval(&mut s, "(entget (entlast) \"ACME\")").is_err(), "the second argument is a list");
+    // regapp: the name when new, nil once registered (by regapp or by xdata an object carries);
+    // the APPID table lists both.
+    assert_eq!(ok(&mut s, "(regapp \"ACME\")"), "nil");
+    assert_eq!(ok(&mut s, "(regapp \"MYAPP\")"), "\"MYAPP\"");
+    assert_eq!(ok(&mut s, "(regapp \"myapp\")"), "nil");
+    assert_eq!(ok(&mut s, "(regapp \"bad*name\")"), "nil");
+    assert_eq!(ok(&mut s, "(cdr (assoc 2 (tblsearch \"APPID\" \"acme\")))"), "\"ACME\"");
+    assert_eq!(ok(&mut s, "(cdr (assoc 2 (tblsearch \"APPID\" \"MYAPP\")))"), "\"MYAPP\"");
+    assert_eq!(ok(&mut s, "(tblsearch \"APPID\" \"PE_URL\")"), "nil");
+}
+
+#[test]
 fn entity_lists_hold_angles_in_radians() {
     let mut s = session();
     let near = |s: &mut Session, expr: &str, want: &str| {

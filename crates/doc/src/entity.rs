@@ -44,6 +44,12 @@ mod dim;
 mod fill;
 mod layout;
 mod text;
+mod xdata;
+
+pub use xdata::{
+    MAX_XDATA_APP_NAME, MAX_XDATA_CHUNK, MAX_XDATA_GROUPS, MAX_XDATA_STRING, RESERVED_XDATA_APPS, XdataError, check_xdata_app_name,
+    check_xdata_groups, is_reserved_xdata_app, is_xdata_group, set_xdata_app, xdata_apps, xdata_of,
+};
 
 pub use block::{Attrib, AttribModes, AttribProps, Insert, MultilineAttrib, mtext_literal};
 pub use common::{Common, Handle, Lineweight, RawTag, Transparency};
