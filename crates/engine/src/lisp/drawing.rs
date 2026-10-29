@@ -402,8 +402,15 @@ fn xdata_from_list(list: &Value) -> Result<Option<Vec<(String, Vec<RawTag>)>>, L
         if cadcraft_doc::is_reserved_xdata_app(&name) {
             return Err(bad(&format!("xdata application {name} is reserved")));
         }
+        // The application's groups must be a proper list too: `("ACME" . 7)` would otherwise
+        // read as "no groups" and remove the data in `entmod`, and a dotted tail after real
+        // groups would be dropped.
+        let tail = app.cdr();
+        if !tail.is_list() {
+            return Err(LispError::bad_arg("listp", &tail));
+        }
         let mut groups: Vec<RawTag> = Vec::new();
-        for g in app.cdr().iter() {
+        for g in tail.iter() {
             if groups.len() >= cadcraft_doc::MAX_XDATA_GROUPS {
                 return Err(bad("too many xdata groups"));
             }

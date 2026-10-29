@@ -447,6 +447,15 @@ fn a_dotted_minus_3_group_is_refused() {
     assert_eq!(ok(&mut s, "(entlast)"), last, "nothing was made");
     assert_eq!(ok(&mut s, "(entmod (append (entget (entlast)) '((-3 . 7))))"), "nil");
     assert_eq!(ok(&mut s, "(cdr (assoc -3 (entget (entlast) '(\"*\"))))"), "((\"ACME\" (1070 . 9)))");
+    // The same one level down: an application whose groups are not a proper list is refused,
+    // not read as "no groups" (which would remove its data), and a dotted tail after real
+    // groups is not dropped.
+    for bad in ["(\"ACME\" . 7)", "(\"ACME\" (1070 . 1) . 5)", "(\"NEW\" . \"x\")"] {
+        assert_eq!(ok(&mut s, &format!("(entmod (append (entget (entlast)) '((-3 {bad}))))")), "nil", "{bad}");
+        assert_eq!(ok(&mut s, "(cdr (assoc -3 (entget (entlast) '(\"*\"))))"), "((\"ACME\" (1070 . 9)))", "{bad}");
+        assert_eq!(ok(&mut s, &format!("(entmake '((0 . \"LINE\") (10 0 0 0) (11 9 0 0) (-3 {bad})))")), "nil", "{bad}");
+        assert_eq!(ok(&mut s, "(entlast)"), last, "{bad}");
+    }
 }
 
 #[test]
