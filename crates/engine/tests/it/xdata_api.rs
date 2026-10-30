@@ -219,3 +219,31 @@ fn runs_of_one_application_in_any_case_are_one_entry() {
     s.execute("properties.set", &json!({"handles": [h], "xdata": shown[0]["xdata"]})).unwrap();
     assert_eq!(entities(&mut s, json!({"xdata": true}))[0]["xdata"], shown[0]["xdata"]);
 }
+
+#[test]
+fn acad_xdata_of_a_dimension_is_refused_and_kept_elsewhere() {
+    // A dimension's `ACAD` run is its DSTYLE overrides, written from the model and read back
+    // into them: raw `ACAD` groups on a dimension would be lost on save, so they are refused
+    // (nothing changes). On any other object `ACAD` is foreign data and survives a save.
+    let mut s = Session::new();
+    s.script("dimlinear 0,0 10,0 5,-3\n").unwrap();
+    s.execute("line", &json!({"points": [[0, 0], [10, 0]]})).unwrap();
+    let dim = s.doc().unwrap().model.iter().find(|e| matches!(e.kind, EntityKind::Dimension(_))).map(|e| e.handle.hex()).unwrap();
+    let line = handle_of(&s, true);
+    s.execute("properties.set", &json!({"handles": [&dim], "textHeight": 5})).unwrap();
+    let before = entities(&mut s, json!({"xdata": true}));
+    let r = s.execute("properties.set", &json!({"handles": [&dim], "xdata": {"ACAD": [[1000, "MINE"], [1070, 42]]}}));
+    assert!(r.is_err(), "ACAD on a dimension is refused");
+    assert_eq!(entities(&mut s, json!({"xdata": true})), before);
+    s.execute("properties.set", &json!({"handles": [&line], "xdata": {"ACAD": [[1000, "MINE"], [1070, 42]]}})).unwrap();
+    let bytes = cadcraft_io::write(s.doc().unwrap(), "acad.dxf").unwrap();
+    let mut back = Session::empty();
+    back.open_drawing(cadcraft_io::read_dxf(&bytes).unwrap(), "acad", None);
+    let kept = entities(&mut back, json!({"xdata": "ACAD"}));
+    assert_eq!(kept.len(), 1, "only the line carries raw ACAD data");
+    assert_eq!(kept[0]["type"], "Line");
+    assert_eq!(kept[0]["xdata"], json!({"ACAD": [[1000, "MINE"], [1070, 42]]}));
+    // The dimension's own override is still there after the round trip.
+    let dm = back.doc().unwrap().model.iter().find(|e| matches!(e.kind, EntityKind::Dimension(_))).unwrap();
+    assert!(matches!(&dm.kind, EntityKind::Dimension(d) if !d.overrides.is_empty()), "the DSTYLE overrides survive");
+}

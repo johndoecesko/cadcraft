@@ -228,6 +228,18 @@ fn run_set(s: &mut Session, p: &Value) -> Result<Value> {
     if let Some(changes) = &xd {
         for h in &hs {
             let Some(e) = d.entity(*h) else { continue };
+            // A dimension's `ACAD` run is written from its overrides (textHeight, arrowSize…) and
+            // read back into them: raw groups under that name would be lost on save.
+            if let Some((app, _)) = changes.iter().find(|(app, _)| cadcraft_doc::is_model_xdata_app(app, &e.kind)) {
+                return Err(bad(
+                    "properties.set",
+                    format!(
+                        "{}: xdata application {app} of a {} is written from its own properties and can't be set as raw data",
+                        h.hex(),
+                        e.kind.dxf_name()
+                    ),
+                ));
+            }
             let mut after = e.common.xdata.clone();
             xdata::apply(&mut after, changes);
             if after.len() > cadcraft_doc::MAX_XDATA_GROUPS {

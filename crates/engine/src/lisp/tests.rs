@@ -474,6 +474,20 @@ fn runs_of_one_application_in_any_case_are_one_list() {
 }
 
 #[test]
+fn acad_xdata_of_a_dimension_is_refused_but_kept_on_other_entities() {
+    // A dimension's ACAD run is its DSTYLE overrides, written from the model: raw ACAD groups
+    // on it are refused (nil, nothing changes). On a line, ACAD is foreign data and stays.
+    let mut s = session();
+    s.script("dimlinear 0,0 10,0 5,-3\n").unwrap();
+    assert_eq!(ok(&mut s, "(cdr (assoc 0 (entget (entlast))))"), "\"DIMENSION\"");
+    assert_eq!(ok(&mut s, "(entmod (append (entget (entlast)) '((-3 (\"ACAD\" (1070 . 1))))))"), "nil");
+    assert_eq!(ok(&mut s, "(assoc -3 (entget (entlast) '(\"*\")))"), "nil");
+    let made = ok(&mut s, "(entmake '((0 . \"LINE\") (10 0 0 0) (11 5 0 0) (-3 (\"ACAD\" (1000 . \"MINE\") (1070 . 42)))))");
+    assert!(made.contains("LINE"));
+    assert_eq!(ok(&mut s, "(cdr (assoc -3 (entget (entlast) '(\"ACAD\"))))"), "((\"ACAD\" (1000 . \"MINE\") (1070 . 42)))");
+}
+
+#[test]
 fn entity_lists_hold_angles_in_radians() {
     let mut s = session();
     let near = |s: &mut Session, expr: &str, want: &str| {

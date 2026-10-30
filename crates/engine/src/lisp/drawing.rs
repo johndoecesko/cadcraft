@@ -495,6 +495,10 @@ fn entity_from_list(ctx: &Ctx<'_>, list: &Value) -> Result<ListedEntity, LispErr
         Some((mut common, k)) => {
             if let Some(apps) = &xdata {
                 for (app, groups) in apps {
+                    // `ACAD` on a dimension holds its overrides (DSTYLE), written from the model.
+                    if cadcraft_doc::is_model_xdata_app(app, &k) {
+                        return Err(LispError::new(format!("bad DXF group: xdata application {app} of a {kind} is written from its own properties")));
+                    }
                     cadcraft_doc::set_xdata_app(&mut common.xdata, app, Some(groups));
                 }
                 // Each application's groups are checked one by one above; together they must

@@ -27,6 +27,14 @@ pub fn is_reserved_xdata_app(name: &str) -> bool {
     RESERVED_XDATA_APPS.contains(&up.as_str())
 }
 
+/// Whether application `name`'s xdata on an entity of `kind` is written from the model rather
+/// than kept raw: the [`RESERVED_XDATA_APPS`] on any entity, and `ACAD` on a dimension, whose
+/// `ACAD` run (`DSTYLE`) holds its dimension-style overrides. The reader models those too, so
+/// raw groups set under such a name would be dropped on save; they are refused instead.
+pub fn is_model_xdata_app(name: &str, kind: &super::EntityKind) -> bool {
+    is_reserved_xdata_app(name) || (name.trim().eq_ignore_ascii_case("ACAD") && matches!(kind, super::EntityKind::Dimension(_)))
+}
+
 /// Why an application name or a run of xdata groups was refused.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct XdataError(pub String);

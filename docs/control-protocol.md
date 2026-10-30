@@ -129,8 +129,10 @@ objects it reports.
 Names, codes, value types and ranges, brace nesting and sizes (16,384 groups per object, 255
 bytes per string) are checked and a bad `xdata` changes nothing. The applications CADCraft
 writes from its own model (`CADCRAFT`, `AcadAnnotative`, the layer transparency and
-description applications) can't be set this way. The change is one undo step, like any other
-property edit. In AutoLISP the same data is the `-3` group of `entget`, `entmod` and `entmake`
+description applications) can't be set this way, nor can `ACAD` on a dimension, whose `ACAD`
+run holds its dimension-style overrides (set those through `textHeight`, `arrowSize` and the
+other dimension properties); `ACAD` data on any other object is kept as it is. The change is
+one undo step, like any other property edit. In AutoLISP the same data is the `-3` group of `entget`, `entmod` and `entmake`
 (see [autolisp.md](autolisp.md)).
 
 The MCP server (`cadcraft-cli mcp --connect 127.0.0.1:PORT`) wraps this protocol; headless
